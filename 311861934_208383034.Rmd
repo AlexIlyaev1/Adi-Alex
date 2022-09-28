@@ -1,0 +1,121 @@
+---
+title: "Age & Wage"
+output:
+  rmdformats::html_docco:
+    highlight: kate
+    date: "2022-09-22"
+runtime: shiny
+---
+
+```{r setup,  include = FALSE }
+knitr::opts_chunk$set(echo = TRUE)
+library(shiny)
+library(ggplot2)
+Data <- read.csv(choose.files())
+```
+
+<h1 style="font-size:25px;">Summary</h1>
+We will describe the distribution of age and wage with histograms. The distributions can be changed by changing the number of bins (depending on the ranges of the values).
+The user is allowed to switch between the two variables and play with the number of bins, and also he will see the descriptive statistics of each variable.
+
+We also sought the link between age and wage, by building a quadratic (second-order) polynomial model.
+
+The application allows to predict the income of the person by inserting the age.
+
+
+```{r eruptions, echo=TRUE}
+
+ui <- fluidPage(
+  titlePanel("Age and Wage"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("Choosevariable", "Choise of variable",
+                  choices = c("wages", "ages"),
+                  selected = "wages"),
+      sliderInput("bins",
+                  "Number of bins:",
+                  min = 10,
+                  max = 50,
+                  value = 30),
+      sliderInput("age",
+                  "Insert your age for wage prediction:",
+                  min =18,
+                  max = 80,
+                  value=25)
+    ),
+    mainPanel(
+      tableOutput("reg"),
+      plotOutput("distPlot"),
+      textOutput("label"),
+      verbatimTextOutput("summary"),
+      plotOutput("plot", click = "plot_click"),
+      verbatimTextOutput("info"))
+    )
+  )
+
+```
+
+
+```{r}
+
+server <- function(input, output) {
+  output$reg <- renderTable({
+    poly_reg <- lm(wage ~ poly(age, 2, raw = TRUE),
+                   data = Data)
+    NewAge <- data.frame(age=input$age)
+    InsiertValue <- predict(object = poly_reg,newdata = NewAge)
+    InsiertValue}
+  )
+  output$info <- renderText({
+    paste("Age=", input$plot_click$x, "\nWage=", input$plot_click$y )
+  })
+  output$distPlot <- renderPlot({
+    if (input$Choosevariable == "wages") {x    <- Data[, 11]}
+    if (input$Choosevariable == "ages") {x    <- Data[, 2]}
+    bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    
+    hist(x, breaks = bins, col = '#FFDB6D', border = 'black',
+         xlab = input$Choosevariable,
+         main = paste("Histogram of", input$Choosevariable) )
+  })
+  
+    
+
+  output$summary <- renderPrint({
+    if (input$Choosevariable == "wages") {x<- Data[, 11]}
+    if (input$Choosevariable == "ages") {x<- Data[, 2]}
+    summary(x)
+  })
+
+   output$label <- renderText({
+     paste("Summary of", input$Choosevariable)
+   })
+  
+  output$plot<- renderPlot({
+    x <- Data$age
+    y <- Data$wage
+    ggplot(Data,aes(x=age,y=wage))+
+      geom_point()+ggtitle("Plot: Age & Wage, and Model line (poly 2 degree)")+
+      geom_smooth(method = "lm", formula = y ~ poly(x, 2), size = 1, colour= "blue")+
+      scale_x_continuous(name="Age")+
+      scale_y_continuous(name="Wage")+
+      theme(plot.title=element_text(hjust=0.5,size = 15, face = "bold"),
+            panel.background = element_rect(fill = "linen", colour = "grey50"),
+            axis.title.y.left = element_text(hjust = 0.5, colour = ,size = 10, face = "bold") ,
+            axis.title.x =element_text(hjust =0.5 ,colour = ,size = 10, face = "bold") ,
+            axis.text.x = element_text(colour = "black")
+            
+      )}
+  )
+
+}
+```
+
+<h1 style="font-size:25px;">Application</h1>
+```{r, echo=FALSE}
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
